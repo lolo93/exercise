@@ -14,12 +14,18 @@ public class Util {
 		public int readerPort;
 		public int writerPort;
 		public int numReaders;
+		public int maxReadersOnServer;
+		public int connectionRetryTimeout; 
+		
+		
 
-		public AllProperties(int readerPort, int writerPort, int numReaders) {
+		public AllProperties(int readerPort, int writerPort, int numReaders, int maxReadersOnServer, int connectionRetryTimeout) {
 			super();
 			this.readerPort = readerPort;
 			this.writerPort = writerPort;
 			this.numReaders = numReaders;
+			this.maxReadersOnServer = maxReadersOnServer;
+			this.connectionRetryTimeout = connectionRetryTimeout;
 		}
 	}
 
@@ -37,25 +43,31 @@ public class Util {
 			String rportS = prop.getProperty("readerPort");
 			String wportS = prop.getProperty("writerPort");
 			String numReadersS = prop.getProperty("numReaders");
+			String maxReadersOnServerS = prop.getProperty("maxReadersOnServer");
+			String connectionRetryTimeoutS = prop.getProperty("connectionRetryTimeout");
+			LOG.info("Properties:"+prop.toString());
+			
 			int rport = Integer.parseInt(rportS);
 			int wport = Integer.parseInt(wportS);
 			int numReaders = Integer.parseInt(numReadersS);
-			AllProperties toReturn = new AllProperties(rport, wport, numReaders);
+			int maxReadersOnServer = Integer.parseInt(maxReadersOnServerS);
+			int connectionRetryTimeout = Integer.parseInt(connectionRetryTimeoutS);
+			AllProperties toReturn = new AllProperties(rport, wport, numReaders, maxReadersOnServer,connectionRetryTimeout);
+			
+			
 			return toReturn;
 		} catch (IOException ex) {
-			ex.printStackTrace();
-			// TODO log
+			LOG.error("Failed loading properties file: all.properties",ex);
 			throw new IllegalArgumentException("Failed loading proprties file: all.properties", ex);
 		} catch (NumberFormatException ex) {
-			// TODO log
-			ex.printStackTrace();
+			LOG.error("Failed loading properties file: all.properties",ex);
 			throw new IllegalArgumentException("Failed parsing proprties file: all.properties", ex);
 		} finally {
 			if (input != null) {
 				try {
 					input.close();
 				} catch (IOException e) {
-					e.printStackTrace();
+					LOG.error("Failed closing properties file: all.properties",e);
 				}
 			}
 		}

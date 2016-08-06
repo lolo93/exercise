@@ -5,16 +5,24 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import util.Util;
 import util.Util.AllProperties;
 
 public class Reader {
-	boolean readerRunning = false;
+	private static final Logger LOG = LoggerFactory.getLogger(Reader.class);
+	long restartTime = System.currentTimeMillis();
+	boolean shutdown = false;
 
 	public static void main(String argv[]) throws Exception {
 		Reader r = new Reader();
@@ -24,22 +32,21 @@ public class Reader {
 	public void run() throws UnknownHostException, IOException {
 		AllProperties props = Util.readProperties();
 		ExecutorService executor = Executors.newFixedThreadPool(props.numReaders + 1);
-		readerRunning = true;
-
-		for (int i = 0; i < props.numReaders + 1; i++) {
-			Server cli = new Server(i);
+		for (int i = 0; i < props.numReaders; i++) {
+			Server cli = new Server(i, restartTime);
 			ServerTask task = new ServerTask(cli, props);
 			executor.submit(task);
 		}
-
 	}
 
 	class Server {
 		public int threadId;
+		public long restartTime;
 
-		public Server(int threadId) {
+		public Server(int threadId, long startTime) {
 			super();
 			this.threadId = threadId;
+			this.restartTime = startTime;
 		}
 	}
 
@@ -54,32 +61,69 @@ public class Reader {
 
 		@Override
 		public Server call() throws Exception {
-			String clientSentence;
-			String capitalizedSentence;
-			Socket connectionSocket = null;
-			System.out.println("Started Reader thread:" + server.threadId);
-			connectionSocket = new Socket("localhost", props.readerPort);
-			System.out.println("Reader Accepted on thread:" + server.threadId);
-			DataInputStream inFromServer = new DataInputStream(connectionSocket.getInputStream());
-			DataOutputStream outToServer = new DataOutputStream(connectionSocket.getOutputStream());
-			while (Reader.this.readerRunning) {
-				UUID uid = UUID.randomUUID();
-				outToServer.writeUTF(uid.toString());
-				outToServer.writeByte(0);
-				
-				while(true) {
-					String uidS = inFromServer.readUTF();
-					UUID uidFromServer = UUID.fromString(uidS);
-					//TODO wrong uid
-					int val = inFromServer.readInt();
-					if(val==-1) {
-						System.out.println("Reader sequence finished:["+uidS+","+val+"]");
+			LOG.info("Started Reader thread:" + server.threadId);
+			while (!Reader.this.shutdown) {
+				Socket connectionSocket = null;
+				DataInputStream inFromServer = null;
+				DataOutputStream outToServer = null;
+				server.restartTime = Reader.this.restartTime;
+				while (true) {
+					try {
+						LOG.info("Reader connecting:" + server.threadId);
+						connectionSocket = new Socket("localhost", props.readerPort);
+						LOG.info("Reader Accepted on thread:" + server.threadId);
+						inFromServer = new DataInputStream(connectionSocket.getInputStream());
+						outToServer = new DataOutputStream(connectionSocket.getOutputStream());
 						break;
-					} else {
-						System.out.println("Reader sequence value   :["+uidS+","+val+"]");
+					} catch (Exception ex) {
+						LOG.error("Reader connect failed", ex);
+						try {
+							Thread.sleep(props.connectionRetryTimeout);
+						} catch (InterruptedException e) {
+							LOG.error("Sleep interrupted", e);
+						}
+					}
+
+				}
+				try {
+					while (Reader.this.restartTime <= server.restartTime) {
+						UUID uid = UUID.randomUUID();
+						outToServer.writeUTF(uid.toString());
+						outToServer.writeByte(0);
+
+						List<Integer> sequence = new LinkedList<Integer>();
+						while (Reader.this.restartTime <= server.restartTime) {
+							String uidS = inFromServer.readUTF();
+							UUID uidFromServer = UUID.fromString(uidS);
+							// TODO wrong uid
+							int val = inFromServer.readInt();
+							if (val == -1) {
+								LOG.info("Reader sequence finished:[" + uidS + "," + val + "]");
+								LOG.info("Sequence:"+Arrays.toString(sequence.toArray()));
+								break;
+							} else {
+								sequence.add(val);
+								LOG.debug("Reader sequence value   :[" + uidS + "," + val + "]");
+							}
+						}
+					}
+					if(Reader.this.restartTime > server.restartTime) {
+						LOG.info("Resterting all Readers"+server.threadId);
+					}
+					
+
+				} catch (Exception ex) {
+					Reader.this.restartTime = System.currentTimeMillis();
+					LOG.error("Reader communication failed", ex);
+					try {
+						connectionSocket.close();
+					} catch (IOException e) {
+						LOG.error("Socket close on error failed", e);
 					}
 				}
+
 			}
+
 			return this.server;
 		}
 
