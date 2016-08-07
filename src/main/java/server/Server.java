@@ -23,6 +23,7 @@ import javax.management.ObjectName;
 
 import org.perf4j.LoggingStopWatch;
 import org.perf4j.StopWatch;
+import org.perf4j.log4j.Log4JStopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,7 +39,8 @@ class Server {
 	AtomicInteger numberOfConcurrentReaderRequests = new AtomicInteger(0);
 	AtomicInteger numberOfConcurrentWriterRequests = new AtomicInteger(0);
 	ServerBean bean = new ServerBean();
-	StopWatch stopWatch = new LoggingStopWatch("servercall");
+	StopWatch stopWatch = new Log4JStopWatch("servercall");
+	StopWatch stopWatch2 = new Log4JStopWatch("test");
 
 	AllProperties props = Util.readProperties();
 
@@ -159,7 +161,10 @@ class Server {
 					if (inFromClient.readByte() == 0) {
 						numberOfConcurrentReaderRequests.incrementAndGet();
 						stopWatch.start();
+						stopWatch2.start();
 						List<Integer> sequence = Server.this.getSequence();
+						stopWatch2.stop();
+						try {Thread.sleep(100);} catch(InterruptedException ex) {};
 						for (Integer integer : sequence) {
 							outToClient.writeUTF(uidS);
 							outToClient.writeInt(integer);

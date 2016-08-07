@@ -27,6 +27,7 @@
 	</appender>
 
 
+
 	<!-- This file appender is used to output aggregated performance statistics 
 		in a format identical to that produced by the LogParser. -->
 	<appender name="fileAppender" class="org.apache.log4j.FileAppender">
@@ -42,7 +43,7 @@
 	<appender name="perf4jJmxAppender"
 		class="org.perf4j.log4j.JmxAttributeStatisticsAppender">
 		<!-- The tag names whose statistics should be exposed as MBean attributes. -->
-		<param name="TagNamesToExpose" value="servercall,trojo" />
+		<param name="TagNamesToExpose" value="servercall,reader,writer,test" />
 		<!-- The NotificationThresholds param configures the sending of JMX notifications 
 			when statistic values exceed specified thresholds. This config states that 
 			the firstBlock max value should be between 0 and 800ms, and the secondBlock 

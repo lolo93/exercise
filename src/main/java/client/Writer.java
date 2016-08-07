@@ -15,6 +15,8 @@ import javax.management.MalformedObjectNameException;
 import javax.management.NotCompliantMBeanException;
 import javax.management.ObjectName;
 
+import org.perf4j.StopWatch;
+import org.perf4j.log4j.Log4JStopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -26,6 +28,7 @@ class Writer {
 	boolean writerRunning = false;
 	WriterBean bean = new WriterBean();
 	int numberOfExecutedRequestst = 0;
+	StopWatch stopWatch = new Log4JStopWatch("writer");
 
 	public static void main(String argv[]) throws Exception {
 		Writer wr = new Writer();
@@ -66,12 +69,14 @@ class Writer {
 			this.writerRunning = true;
 			try {
 				while (writerRunning) {
+					stopWatch.start();
 					int offset = inFromServer.readInt();
 					int number = inFromServer.readInt();
 					for (int i = offset; i < offset + number; i++) {
 						outToServer.writeInt(i);
 					}
 					numberOfExecutedRequestst++;
+					stopWatch.stop();
 					//this.bean.numberOfExecutedRequests = numberOfExecutedRequestst;
 				}
 			} catch (Exception ex) {

@@ -13,6 +13,8 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import org.perf4j.StopWatch;
+import org.perf4j.log4j.Log4JStopWatch;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,6 +25,7 @@ public class Reader {
 	private static final Logger LOG = LoggerFactory.getLogger(Reader.class);
 	long restartTime = System.currentTimeMillis();
 	boolean shutdown = false;
+	StopWatch stopWatch = new Log4JStopWatch("reader");
 
 	public static void main(String argv[]) throws Exception {
 		Reader r = new Reader();
@@ -93,6 +96,7 @@ public class Reader {
 
 						List<Integer> sequence = new LinkedList<Integer>();
 						while (Reader.this.restartTime <= server.restartTime) {
+							stopWatch.start();
 							String uidS = inFromServer.readUTF();
 							UUID uidFromServer = UUID.fromString(uidS);
 							// TODO wrong uid
@@ -105,6 +109,7 @@ public class Reader {
 								sequence.add(val);
 								LOG.debug("Reader sequence value   :[" + uidS + "," + val + "]");
 							}
+							stopWatch.stop();
 						}
 					}
 					if(Reader.this.restartTime > server.restartTime) {
